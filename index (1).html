@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>حلوى ديرتنا - نظام الإدارة السحابي</title>
+    <title id="page-title">حلوى ديرتنا - نظام الإدارة السحابي</title>
     <style>
         :root {
             --primary: #4b1817;
@@ -43,10 +43,10 @@
         .header-logo-preview {
             width: 45px;
             height: 45px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid var(--accent);
-            background: white;
+            border-radius: 0;
+            object-fit: contain;
+            border: none;
+            background: transparent;
             display: none;
         }
 
@@ -386,7 +386,7 @@
             await loadDataFromFirebase();
             setDefaultDates();
             loadInitialBalanceUI();
-            updateLogoUI();
+            updateStoreIdentityUI();
             addCartRow();
             addExpRow();
             renderInvoiceAddonsUI();
@@ -399,7 +399,7 @@
     <header>
         <div class="header-brand">
             <img id="header-logo" class="header-logo-preview" src="" alt="شعار المشروع">
-            <h2>حلوى ديرتنا</h2>
+            <h2 id="header-store-name">حلوى ديرتنا</h2>
         </div>
     </header>
 
@@ -697,8 +697,14 @@
     <div id="tab-settings" class="tab-content">
         <div class="grid-2">
             <div class="box">
-                <h3>إعدادات النظام والشعار وطرق الدفع</h3>
+                <h3>إعدادات النظام، الاسم، الشعار وطرق الدفع</h3>
                 
+                <div class="input-group" style="background: #eef2f5; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                    <label style="font-weight: bold; color: var(--primary);">🏷️ اسم المشروع/المحل:</label>
+                    <input type="text" id="store-name-input" placeholder="اسم المشروع..." style="background: white; margin-bottom: 5px;">
+                    <button type="button" class="btn-add" onclick="saveStoreName()" style="padding: 10px; width: 100%;">تحديث اسم المشروع</button>
+                </div>
+
                 <div class="input-group" style="background: #eef2f5; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
                     <label style="font-weight: bold; color: var(--primary);">🖼️ رابط الشعار (Logo URL) أو رفع صورة:</label>
                     <input type="text" id="store-logo-input" placeholder="ضع رابط الصورة هنا (https://...)" style="background: white; margin-bottom: 5px;">
@@ -779,6 +785,7 @@
 
     <!-- البرمجيات المنطقية ووظائف النظام -->
     <script>
+        let storeName = "حلوى ديرتنا";
         let types = ["ملكية", "خاصة"];
         let sizes = ["نصف كيلو", "1 كيلو"];
         let payMethods = [
@@ -808,6 +815,7 @@
                 querySnapshot.forEach((docSnap) => {
                     let docData = docSnap.data();
                     if (docSnap.id === "settings") {
+                        if (docData.storeName) storeName = docData.storeName;
                         if (docData.types) types = docData.types;
                         if (docData.sizes) sizes = docData.sizes;
                         if (docData.payMethods) payMethods = docData.payMethods;
@@ -832,7 +840,7 @@
         async function saveAllToFirebase() {
             try {
                 await window.FirebaseSDK.setDoc(window.FirebaseSDK.doc(window.db, "deertna_store", "settings"), {
-                    types, sizes, payMethods, addons, initialCash, initialBank, isInitSaved, storeLogo
+                    storeName, types, sizes, payMethods, addons, initialCash, initialBank, isInitSaved, storeLogo
                 });
                 await window.FirebaseSDK.setDoc(window.FirebaseSDK.doc(window.db, "deertna_store", "sales"), { list: sales });
                 await window.FirebaseSDK.setDoc(window.FirebaseSDK.doc(window.db, "deertna_store", "exps"), { list: exps });
@@ -854,10 +862,17 @@
             if(fDate) fDate.value = today;
         }
 
-        function updateLogoUI() {
+        function updateStoreIdentityUI() {
             let headerLogo = document.getElementById('header-logo');
             let logoInput = document.getElementById('store-logo-input');
+            let storeNameInput = document.getElementById('store-name-input');
+            let headerStoreName = document.getElementById('header-store-name');
+            let pageTitle = document.getElementById('page-title');
+
             if(logoInput && storeLogo) logoInput.value = storeLogo;
+            if(storeNameInput && storeName) storeNameInput.value = storeName;
+            if(headerStoreName) headerStoreName.innerText = storeName;
+            if(pageTitle) pageTitle.innerText = storeName + " - نظام الإدارة السحابي";
 
             if (headerLogo && storeLogo) {
                 headerLogo.src = storeLogo;
@@ -865,6 +880,16 @@
             } else if(headerLogo) {
                 headerLogo.style.display = 'none';
             }
+        }
+
+        function saveStoreName() {
+            let nameInput = document.getElementById('store-name-input');
+            if(nameInput) {
+                storeName = nameInput.value.trim() || "حلوى ديرتنا";
+            }
+            updateStoreIdentityUI();
+            saveAll();
+            alert("تم تحديث اسم المشروع بنجاح!");
         }
 
         function encodeImageFileAsURL(element) {
@@ -875,7 +900,7 @@
                     storeLogo = reader.result;
                     let logoInput = document.getElementById('store-logo-input');
                     if(logoInput) logoInput.value = storeLogo;
-                    updateLogoUI();
+                    updateStoreIdentityUI();
                 }
                 reader.readAsDataURL(file);
             }
@@ -886,7 +911,7 @@
             if(logoInput) {
                 storeLogo = logoInput.value.trim();
             }
-            updateLogoUI();
+            updateStoreIdentityUI();
             saveAll();
             alert("تم حفظ وتحديث الشعار بنجاح!");
         }
@@ -1589,8 +1614,8 @@
             let w = window.open('', '', 'width=320,height=500');
             w.document.write(`
             <div style="text-align:center;font-family:sans-serif;padding:10px;direction:rtl;">
-                ${storeLogo ? `<img src="${storeLogo}" style="width:50px;height:50px;border-radius:50%;object-fit:cover;margin-bottom:5px;" />` : ''}
-                <h2 style="color:#4b1817;margin-bottom:2px;">حلوى ديرتنا</h2>
+                ${storeLogo ? `<img src="${storeLogo}" style="width:50px;height:50px;border-radius:0;object-fit:contain;margin-bottom:5px;" />` : ''}
+                <h2 style="color:#4b1817;margin-bottom:2px;">${storeName}</h2>
                 <p style="font-size:0.8rem;color:#666;margin-bottom:10px;">التاريخ: ${date}</p>
                 <div style="border-top:1px dashed #000; border-bottom:1px dashed #000; padding:5px 0; margin-bottom:10px;">
                     ${itemsHtml}
@@ -1694,7 +1719,7 @@
             }
 
             updateSelectors();
-            updateLogoUI();
+            updateStoreIdentityUI();
 
             let slSPay = document.getElementById('s-pay');
             let slFAccount = document.getElementById('f-account');
