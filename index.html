@@ -398,10 +398,9 @@
 
     <header>
         <div class="header-brand">
-            <img id="header-logo" class="header-logo-preview" src="" alt="شعار">
+            <img id="header-logo" class="header-logo-preview" src="" alt="شعار المشروع">
             <h2>حلوى ديرتنا</h2>
         </div>
-        <button onclick="window.print()" style="background-color: var(--accent); color: black; width: auto; padding: 8px 15px;">طباعة التقرير</button>
     </header>
 
     <div class="tabs-nav">
@@ -698,8 +697,16 @@
     <div id="tab-settings" class="tab-content">
         <div class="grid-2">
             <div class="box">
-                <h3>إعدادات النظام وطرق الدفع</h3>
+                <h3>إعدادات النظام والشعار وطرق الدفع</h3>
                 
+                <div class="input-group" style="background: #eef2f5; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                    <label style="font-weight: bold; color: var(--primary);">🖼️ رابط الشعار (Logo URL) أو رفع صورة:</label>
+                    <input type="text" id="store-logo-input" placeholder="ضع رابط الصورة هنا (https://...)" style="background: white; margin-bottom: 5px;">
+                    <label style="font-size: 0.8rem; color: #555;">أو اختر ملف صورة من جهازك:</label>
+                    <input type="file" id="store-logo-file" accept="image/*" onchange="encodeImageFileAsURL(this)" style="background: white; padding: 5px;">
+                    <button type="button" class="btn-add" onclick="saveStoreLogo()" style="padding: 10px; width: 100%; margin-top: 5px;">حفظ وتحديث الشعار</button>
+                </div>
+
                 <div class="input-group" style="background: #eef2f5; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
                     <label style="font-weight: bold;">اسم طريقة الدفع:</label>
                     <input type="text" id="p-name" placeholder="مثال: بنفت Pay، كاش...">
@@ -709,6 +716,7 @@
                         <option value="البنك">حساب البنك</option>
                         <option value="التجوري/الكاش">التجوري / الصندوق الكاش</option>
                         <option value="حساب بنفت">حساب بنفت المباشر</option>
+                        <option value="معلق">معلق</option>
                         <option value="أخرى">حساب آخر</option>
                     </select>
 
@@ -848,12 +856,39 @@
 
         function updateLogoUI() {
             let headerLogo = document.getElementById('header-logo');
+            let logoInput = document.getElementById('store-logo-input');
+            if(logoInput && storeLogo) logoInput.value = storeLogo;
+
             if (headerLogo && storeLogo) {
                 headerLogo.src = storeLogo;
                 headerLogo.style.display = 'block';
             } else if(headerLogo) {
                 headerLogo.style.display = 'none';
             }
+        }
+
+        function encodeImageFileAsURL(element) {
+            let file = element.files[0];
+            if (file) {
+                let reader = new FileReader();
+                reader.onloadend = function() {
+                    storeLogo = reader.result;
+                    let logoInput = document.getElementById('store-logo-input');
+                    if(logoInput) logoInput.value = storeLogo;
+                    updateLogoUI();
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function saveStoreLogo() {
+            let logoInput = document.getElementById('store-logo-input');
+            if(logoInput) {
+                storeLogo = logoInput.value.trim();
+            }
+            updateLogoUI();
+            saveAll();
+            alert("تم حفظ وتحديث الشعار بنجاح!");
         }
 
         function loadInitialBalanceUI() {
@@ -1296,7 +1331,7 @@
             let grandTotal = itemsSum + addonsSum;
 
             let payObj = payMethods[payIndex];
-            let isUnpaid = (payObj.name === "لم يدفع بعد (آجل)");
+            let isUnpaid = (payObj.name === "لم يدفع بعد (آجل)" || payObj.target === "معلق");
 
             if (editingId) {
                 let saleIndex = sales.findIndex(s => s.id == editingId);
@@ -1427,10 +1462,10 @@
         }
 
         function markSaleAsPaid(saleId) {
-            let payIndexPrompt = prompt("اختر طريقة سداد المبلغ الآن:\n" + payMethods.filter(p => p.name !== "لم يدفع بعد (آجل)").map((p, i) => `${i}: ${p.name}`).join('\n'));
+            let payIndexPrompt = prompt("اختر طريقة سداد المبلغ الآن:\n" + payMethods.filter(p => p.name !== "لم يدفع بعد (آجل)" && p.target !== "معلق").map((p, i) => `${i}: ${p.name}`).join('\n'));
             if(payIndexPrompt === null) return;
             let pIdx = parseInt(payIndexPrompt);
-            let validMethods = payMethods.filter(p => p.name !== "لم يدفع بعد (آجل)");
+            let validMethods = payMethods.filter(p => p.name !== "لم يدفع بعد (آجل)" && p.target !== "معلق");
             
             if(isNaN(pIdx) || !validMethods[pIdx]) {
                 alert("رقم طريقة الدفع غير صحيح");
@@ -1659,6 +1694,7 @@
             }
 
             updateSelectors();
+            updateLogoUI();
 
             let slSPay = document.getElementById('s-pay');
             let slFAccount = document.getElementById('f-account');
@@ -1785,7 +1821,7 @@
 
                     if (f.payTarget === 'التجوري/الكاش') {
                         totCash += (f.amount || 0);
-                    } else {
+                    } else if (f.payTarget === 'البنك' || f.payTarget === 'حساب بنفت' || f.payTarget === 'أخرى') {
                         totBank += (f.amount || 0);
                     }
 
@@ -1978,7 +2014,7 @@
                 }
                 if(Array.isArray(exps)) {
                     exps.forEach(e => {
-                        if(e && (!pnlYear || (e.date && e.date.startsWith(pnlYear)))) { periodExps += (e.amount || 0); }
+                        if(e && (!pnlYear || (e.date && e.date.startsWith(e.date.substring(0, 4))))) { periodExps += (e.amount || 0); }
                     });
                 }
             }
